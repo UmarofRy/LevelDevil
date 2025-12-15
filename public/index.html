@@ -278,14 +278,14 @@
 
     // === XARITALAR BAZASI ===
     const levels = [
-        [
+[
             "####################",
             "#                  #",
-            "# @                #",
-            "#####   #######    #",
-            "#       #     #  ! #",
-            "#       #     ######",
-            "#  ^^^  #          #",
+            "# @              ! #",  // Eshikni tepaga, oson joyga chiqardim
+            "#######   ##########",  // Sakrash uchun joy qoldirdim, lekin oson
+            "#     #   #        #",
+            "     #   #        #",
+            "#     #####        #",  // Pastga tushib ketsangiz, tikan yo'q
             "####################"
         ],
         [
@@ -294,14 +294,14 @@
             "#####         #    #",
             "#      * #    #    #",
             "#    ####     #    #",
-            "# @  #  #   ^^#    #",
+            " @  #  #   ^^#    #",
             "######  ########## #",
             "####################"
         ],
         [
             "####################",
             "#                  #",
-            "#  @      _     !  #",
+            "  @      _     !  #",
             "# ###    ###   ### #",
             "#      * #         #",
             "# ^^^^^^^^^^^^^^^^ #",
@@ -311,8 +311,8 @@
     ];
 
     const TILE_SIZE = 40;
-    const MOVE_SPEED = 220;
-    const JUMP_VELOCITY = -550;
+    const MOVE_SPEED = 240;
+    const JUMP_VELOCITY = -650;
     const COYOTE_TIME = 150;
 
     // === PHASER CONFIG ===
