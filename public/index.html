@@ -1,37 +1,82 @@
 <!DOCTYPE html>
-<html>
+<html lang="uz">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Devil Troll Multiplayer</title>
+    <title>Devil Troll: Neon Edition</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="//cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <style>
-        body { margin: 0; padding: 0; background: #222; overflow: hidden; }
-        #controls { position: fixed; bottom: 20px; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box; z-index: 100; pointer-events: none; }
-        .btn { width: 80px; height: 80px; background: rgba(255, 255, 255, 0.2); border-radius: 50%; border: 2px solid white; color: white; font-size: 24px; pointer-events: auto; touch-action: manipulation; }
-        .btn:active { background: rgba(255, 255, 255, 0.5); }
+        body { margin: 0; padding: 0; background: #111; overflow: hidden; font-family: sans-serif; }
+        
+        /* UI Qismi */
+        #status {
+            position: fixed; top: 10px; left: 10px; color: #00ff00; 
+            font-size: 12px; z-index: 100; text-shadow: 0 0 5px #00ff00;
+        }
+
+        /* Boshqaruv tugmalari (Modern Style) */
+        #controls { 
+            position: fixed; bottom: 30px; width: 100%; 
+            display: flex; justify-content: space-between; 
+            padding: 0 40px; box-sizing: border-box; 
+            z-index: 100; pointer-events: none; 
+        }
+        
+        .control-group { display: flex; gap: 20px; pointer-events: auto; }
+
+        .btn { 
+            width: 70px; height: 70px; 
+            background: rgba(255, 255, 255, 0.1); 
+            backdrop-filter: blur(5px);
+            border-radius: 50%; 
+            border: 2px solid rgba(255, 255, 255, 0.3); 
+            color: white; font-size: 24px; 
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.1s;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            touch-action: manipulation;
+            user-select: none;
+        }
+        
+        .btn:active { 
+            background: rgba(255, 255, 255, 0.3); 
+            transform: scale(0.95);
+            border-color: #fff;
+            box-shadow: 0 0 20px rgba(255,255,255,0.4);
+        }
+
+        /* Yuklanish ekrani */
+        #loader {
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background: #000; color: white; display: flex;
+            align-items: center; justify-content: center; z-index: 9999;
+        }
     </style>
 </head>
 <body>
 
+<div id="loader">Yuklanmoqda...</div>
+<div id="status">🔴 Ulanmoqda...</div>
+
 <div id="controls">
-    <div>
-        <button class="btn" id="left">⬅️</button>
-        <button class="btn" id="right">➡️</button>
+    <div class="control-group">
+        <div class="btn" id="left">◀</div>
+        <div class="btn" id="right">▶</div>
     </div>
-    <button class="btn" id="jump">🦘</button>
+    <div class="control-group">
+        <div class="btn" id="jump">▲</div>
+    </div>
 </div>
 
 <script>
     const tg = window.Telegram.WebApp;
     tg.expand();
+    tg.ready();
 
-    // --- LEVELLAR BAZASI (XARITALAR) ---
-    // # = Devor, ^ = Tikan, @ = Start, ! = Eshik (Win), * = Arra, _ = Yiqiladigan pol
+    // --- XARITALAR BAZASI ---
     const levels = [
-        // Level 1: Oson boshlanish
         [
             "####################",
             "#                  #",
@@ -42,161 +87,226 @@
             "#  ^^^  #          #",
             "####################"
         ],
-        // Level 2: "Devil" Tuzoqlar
         [
             "####################",
             "# !                #",
             "#####         #    #",
-            "#      * #    #",
+            "#      * #    #    #",
             "#    ####     #    #",
             "# @  #  #   ^^#    #",
             "######  ########## #",
             "####################"
         ],
-        // Level 3: Parkour
         [
             "####################",
             "#                  #",
             "#  @      _     !  #",
             "# ###    ###   ### #",
-            "#      * #",
+            "#      * #         #",
             "# ^^^^^^^^^^^^^^^^ #",
             "####################",
             "####################"
         ]
     ];
 
-    const TILE_SIZE = 40; // Har bir blok o'lchami
+    const TILE_SIZE = 40;
 
     const config = {
         type: Phaser.AUTO,
         width: window.innerWidth,
         height: window.innerHeight,
-        backgroundColor: '#4a1c1c',
+        backgroundColor: '#1a1a1a', // To'q kulrang fon
+        parent: document.body,
         physics: {
             default: 'arcade',
-            arcade: { gravity: { y: 800 }, debug: false }
+            arcade: { 
+                gravity: { y: 900 }, // Biroz og'irroq realistik sakrash
+                debug: false 
+            }
         },
         scene: { preload, create, update }
     };
 
     const game = new Phaser.Game(config);
+    
+    // Global o'zgaruvchilar
     let socket, player, cursors;
     let otherPlayers, platforms, spikes, door, saws, fakeFloors;
     let isLeft = false, isRight = false, isJump = false;
+    let particles; // Portlash effekti uchun
     let myId;
+    let statusDiv = document.getElementById('status');
+    let loaderDiv = document.getElementById('loader');
 
     function preload() {
-        // Rasmlar o'rniga rangli shakllar yasaymiz (internet kerak emas)
-        let graphics = this.make.graphics({x: 0, y: 0, add: false});
-        
-        // Devor
-        graphics.fillStyle(0x000000);
-        graphics.fillRect(0, 0, 40, 40);
-        graphics.generateTexture('wall', 40, 40);
-        
-        // Tikan (Spike)
-        graphics.clear();
-        graphics.fillStyle(0xff0000);
-        graphics.beginPath();
-        graphics.moveTo(0, 40); graphics.lineTo(20, 0); graphics.lineTo(40, 40);
-        graphics.fillPath();
-        graphics.generateTexture('spike', 40, 40);
+        // --- GRAFIKA GENERATSIYASI (Rasm yuklamaslik uchun) ---
+        let g = this.make.graphics({x: 0, y: 0, add: false});
 
-        // Player (Oq kvadrat)
-        graphics.clear();
-        graphics.fillStyle(0xffffff);
-        graphics.fillRect(0, 0, 30, 30);
-        graphics.generateTexture('player', 30, 30);
+        // 1. Devor (Neon uslub)
+        g.fillStyle(0x222222);
+        g.fillRect(0, 0, 40, 40);
+        g.lineStyle(2, 0x00ffcc); // Neon ko'k chiziq
+        g.strokeRect(0, 0, 40, 40);
+        g.generateTexture('wall', 40, 40);
 
-        // Eshik
-        graphics.clear();
-        graphics.fillStyle(0x00ff00);
-        graphics.fillRect(0, 0, 40, 60);
-        graphics.generateTexture('door', 40, 60);
+        // 2. Tikan (Qizil)
+        g.clear();
+        g.fillStyle(0xff0055);
+        g.beginPath();
+        g.moveTo(0, 40); g.lineTo(20, 0); g.lineTo(40, 40);
+        g.fillPath();
+        g.generateTexture('spike', 40, 40);
 
-        // Arra (Saw)
-        graphics.clear();
-        graphics.fillStyle(0xcccccc);
-        graphics.fillCircle(20, 20, 20);
-        graphics.generateTexture('saw', 40, 40);
+        // 3. Player (Asosiy shakl) - oq kvadrat, keyin ranglanadi
+        g.clear();
+        g.fillStyle(0xffffff);
+        g.fillRoundedRect(2, 2, 36, 36, 5);
+        g.generateTexture('player', 40, 40);
+
+        // 4. Eshik (Yashil)
+        g.clear();
+        g.fillStyle(0x00ff00);
+        g.fillRect(0, 0, 40, 60);
+        g.generateTexture('door', 40, 60);
+
+        // 5. Arra
+        g.clear();
+        g.lineStyle(3, 0xcccccc);
+        g.fillStyle(0x888888);
+        g.fillCircle(20, 20, 20);
+        g.strokeCircle(20, 20, 20);
+        g.generateTexture('saw', 40, 40);
+
+        // 6. Particle (Kichik nuqta)
+        g.clear();
+        g.fillStyle(0xffffff);
+        g.fillCircle(4, 4, 4);
+        g.generateTexture('particle', 8, 8);
     }
 
     function create() {
-        socket = io();
-        otherPlayers = this.physics.add.group();
-        
-        // Guruhlar
-        platforms = this.physics.add.staticGroup();
-        spikes = this.physics.add.staticGroup();
-        saws = this.physics.add.group(); // Dinamik guruh (harakatlanadi)
-        fakeFloors = this.physics.add.staticGroup();
+        const self = this;
+        loaderDiv.style.display = 'none';
 
-        // Serverdan ma'lumot kutish
-        socket.on('initGame', (data) => {
-            myId = socket.id;
-            buildLevel(this, data.levelIndex);
-            
-            Object.keys(data.players).forEach((id) => {
-                if (id !== myId) addOtherPlayer(this, data.players[id]);
-            });
-            
-            // O'zimni yaratish
-            if (!player) createPlayer(this, data.players[myId]);
+        // --- ORQA FON (GRID) ---
+        this.add.grid(0, 0, 2000, 2000, 40, 40, 0x1a1a1a, 1, 0x333333, 1).setOrigin(0);
+
+        // --- SOCKET ULANISH ---
+        socket = io({ transports: ['websocket'], upgrade: false });
+
+        socket.on('connect', () => {
+            statusDiv.innerHTML = "🟢 Online";
+            statusDiv.style.color = "#00ff00";
+        });
+        
+        socket.on('disconnect', () => {
+            statusDiv.innerHTML = "🔴 Uzildi";
+            statusDiv.style.color = "#ff0000";
         });
 
-        socket.on('newPlayer', (pInfo) => addOtherPlayer(this, pInfo));
-        
-        socket.on('playerMoved', (pInfo) => {
-            otherPlayers.getChildren().forEach((other) => {
-                if (pInfo.playerId === other.playerId) other.setPosition(pInfo.x, pInfo.y);
+        // Guruhlar
+        otherPlayers = this.physics.add.group();
+        platforms = this.physics.add.staticGroup();
+        spikes = this.physics.add.staticGroup();
+        saws = this.physics.add.group();
+        fakeFloors = this.physics.add.staticGroup();
+
+        // Particles Manager (Portlashlar uchun)
+        particles = this.add.particles(0, 0, 'particle', {
+            speed: 100,
+            scale: { start: 1, end: 0 },
+            blendMode: 'ADD',
+            emitting: false
+        });
+
+        // Serverdan ma'lumotlar
+        socket.on('initGame', (data) => {
+            myId = socket.id;
+            buildLevel(self, data.levelIndex);
+            
+            Object.keys(data.players).forEach((id) => {
+                if (id !== myId) addOtherPlayer(self, data.players[id]);
             });
+
+            if (!player) createPlayer(self, data.players[myId]);
+        });
+
+        socket.on('newPlayer', (pInfo) => addOtherPlayer(self, pInfo));
+
+        socket.on('playerMoved', (pInfo) => {
+            let other = otherPlayers.getChildren().find(p => p.playerId === pInfo.playerId);
+            if (other) {
+                // Silliq harakat (Interpolation)
+                self.tweens.add({
+                    targets: other,
+                    x: pInfo.x,
+                    y: pInfo.y,
+                    duration: 50, // 50ms kechikish bilan silliqlash
+                });
+            }
         });
 
         socket.on('playerDisconnected', (id) => {
-            otherPlayers.getChildren().forEach((other) => {
-                if (id === other.playerId) other.destroy();
-            });
+            let other = otherPlayers.getChildren().find(p => p.playerId === id);
+            if (other) {
+                createExplosion(self, other.x, other.y, other.tintTopLeft);
+                other.destroy();
+            }
         });
 
         socket.on('changeLevel', (index) => {
-            restartGame(this, index);
+            createLevelTransition(self);
+            setTimeout(() => {
+                restartGame(self, index);
+            }, 500);
         });
 
-        // Boshqaruv
+        // Klaviatura
         cursors = this.input.keyboard.createCursorKeys();
         setupTouchControls();
     }
 
     function update() {
         if (player) {
-            if (cursors.left.isDown || isLeft) player.setVelocityX(-200);
-            else if (cursors.right.isDown || isRight) player.setVelocityX(200);
-            else player.setVelocityX(0);
+            // Harakat
+            if (cursors.left.isDown || isLeft) {
+                player.setVelocityX(-220);
+                player.flipX = true;
+            } else if (cursors.right.isDown || isRight) {
+                player.setVelocityX(220);
+                player.flipX = false;
+            } else {
+                player.setVelocityX(0);
+            }
 
             if ((cursors.up.isDown || isJump) && player.body.touching.down) {
                 player.setVelocityY(-550);
+                createDust(this, player.x, player.y + 20); // Sakrash changi
             }
 
-            // Arra aylanishi
-            saws.getChildren().forEach(saw => {
-                saw.rotation += 0.1;
-            });
+            // Arralar aylanishi
+            saws.getChildren().forEach(saw => saw.rotation += 0.15);
 
-            // Yiqilib tushsa
-            if (player.y > window.innerHeight + 100) respawn();
+            // O'lim (Pastga tushish)
+            if (player.y > window.innerHeight + 100) respawn(this);
 
-            // Serverga pozitsiya
-            let x = player.x; let y = player.y;
-            if (player.oldPos && (x !== player.oldPos.x || y !== player.oldPos.y)) {
+            // Serverga jo'natish
+            let x = Math.round(player.x);
+            let y = Math.round(player.y);
+            
+            // Faqat o'zgarganda jo'natamiz
+            if (player.oldPos && (Math.abs(x - player.oldPos.x) > 2 || Math.abs(y - player.oldPos.y) > 2)) {
                 socket.emit('playerMovement', { x, y });
+                player.oldPos = { x, y };
+            } else if (!player.oldPos) {
+                 player.oldPos = { x, y };
             }
-            player.oldPos = { x, y };
         }
     }
 
+    // --- LEVEL VA O'YINCHI FUNKSIYALARI ---
+
     function buildLevel(scene, index) {
-        // Tozalash
         platforms.clear(true, true);
         spikes.clear(true, true);
         saws.clear(true, true);
@@ -217,21 +327,13 @@
                 else if (tile === '@') { startX = posX; startY = posY; }
                 else if (tile === '!') door = scene.physics.add.staticSprite(posX, posY, 'door');
                 else if (tile === '_') {
-                    let floor = fakeFloors.create(posX, posY, 'wall');
-                    floor.setTint(0x888888); // Sal boshqacha rang
+                    let f = fakeFloors.create(posX, posY, 'wall');
+                    f.setTint(0x555555); f.alpha = 0.8;
                 }
                 else if (tile === '*') {
                     let saw = saws.create(posX, posY, 'saw');
-                    saw.body.allowGravity = false;
-                    saw.setImmovable(true);
-                    // Arra harakati (Tween)
-                    scene.tweens.add({
-                        targets: saw,
-                        x: posX + 100,
-                        duration: 1500,
-                        yoyo: true,
-                        repeat: -1
-                    });
+                    saw.body.allowGravity = false; saw.setImmovable(true);
+                    scene.tweens.add({ targets: saw, x: posX + 120, duration: 1200, yoyo: true, repeat: -1 });
                 }
             }
         }
@@ -242,20 +344,21 @@
         player = scene.physics.add.sprite(info.x, info.y, 'player');
         player.setTint(info.color);
         player.setBounce(0.1);
-        player.setCollideWorldBounds(false); // Pastga tushib ketishi uchun
+        player.setCollideWorldBounds(false);
+        
+        // Kamera playerga ergashishi
+        scene.cameras.main.startFollow(player, true, 0.1, 0.1);
 
         scene.physics.add.collider(player, platforms);
         
-        // Tikan va Arra o'ldiradi
-        scene.physics.add.collider(player, spikes, respawn, null, scene);
-        scene.physics.add.overlap(player, saws, respawn, null, scene);
+        // O'lim holatlari
+        scene.physics.add.collider(player, spikes, () => respawn(scene), null, scene);
+        scene.physics.add.overlap(player, saws, () => respawn(scene), null, scene);
 
-        // Yiqiladigan pol
         scene.physics.add.collider(player, fakeFloors, (p, f) => {
-            scene.time.delayedCall(500, () => { f.body.enable = false; f.visible = false; }); // 0.5 sekdan keyin yo'qoladi
+            scene.tweens.add({ targets: f, alpha: 0, duration: 400, onComplete: () => { f.disableBody(true, true); } });
         }, null, scene);
 
-        // Eshik (Yutish)
         scene.physics.add.overlap(player, door, () => {
             socket.emit('levelWin');
         }, null, scene);
@@ -265,13 +368,23 @@
         let other = scene.physics.add.sprite(info.x, info.y, 'player');
         other.setTint(info.color);
         other.playerId = info.playerId;
-        other.body.allowGravity = false; // Boshqalarga fizika shart emas
+        other.body.allowGravity = false;
+        other.alpha = 0.7; // Boshqalar sal shaffof
         otherPlayers.add(other);
     }
 
-    function respawn() {
+    function respawn(scene) {
+        createExplosion(scene, player.x, player.y, player.tintTopLeft);
         player.setVelocity(0, 0);
-        player.setPosition(100, 200); // Start joyiga qaytish
+        player.setPosition(100, 200);
+        player.alpha = 0; // Birozga yo'qoladi
+        
+        scene.tweens.add({
+            targets: player,
+            alpha: 1,
+            duration: 200
+        });
+        
         tg.HapticFeedback.notificationOccurred('error');
     }
 
@@ -284,13 +397,59 @@
         tg.HapticFeedback.notificationOccurred('success');
     }
 
+    // --- VISUAL EFFEKTLAR ---
+
+    function createExplosion(scene, x, y, color) {
+        let emitter = particles.createEmitter({
+            x: x, y: y,
+            speed: { min: 50, max: 200 },
+            angle: { min: 0, max: 360 },
+            scale: { start: 0.5, end: 0 },
+            blendMode: 'SCREEN',
+            lifespan: 400,
+            tint: color,
+            quantity: 20
+        });
+        emitter.explode();
+    }
+
+    function createDust(scene, x, y) {
+        let emitter = particles.createEmitter({
+            x: x, y: y,
+            speedY: { min: -10, max: 0 },
+            speedX: { min: -50, max: 50 },
+            scale: { start: 0.3, end: 0 },
+            lifespan: 200,
+            quantity: 5,
+            tint: 0xcccccc
+        });
+        emitter.explode();
+    }
+
+    function createLevelTransition(scene) {
+        let rect = scene.add.rectangle(0, 0, scene.scale.width, scene.scale.height, 0xffffff).setOrigin(0);
+        rect.setScrollFactor(0);
+        scene.tweens.add({
+            targets: rect,
+            alpha: 0,
+            duration: 500,
+            onComplete: () => rect.destroy()
+        });
+    }
+
     function setupTouchControls() {
-        document.getElementById('left').addEventListener('touchstart', (e) => { e.preventDefault(); isLeft = true; });
-        document.getElementById('left').addEventListener('touchend', (e) => { e.preventDefault(); isLeft = false; });
-        document.getElementById('right').addEventListener('touchstart', (e) => { e.preventDefault(); isRight = true; });
-        document.getElementById('right').addEventListener('touchend', (e) => { e.preventDefault(); isRight = false; });
-        document.getElementById('jump').addEventListener('touchstart', (e) => { e.preventDefault(); isJump = true; });
-        document.getElementById('jump').addEventListener('touchend', (e) => { e.preventDefault(); isJump = false; });
+        const bindBtn = (id, startVar, endVar) => {
+            let el = document.getElementById(id);
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); if(startVar === 'left') isLeft=true; if(startVar==='right') isRight=true; if(startVar==='jump') isJump=true; });
+            el.addEventListener('touchend', (e) => { e.preventDefault(); if(startVar === 'left') isLeft=false; if(startVar==='right') isRight=false; if(startVar==='jump') isJump=false; });
+            // Sichqoncha uchun ham (kompyuterda test qilishga)
+            el.addEventListener('mousedown', (e) => { if(startVar === 'left') isLeft=true; if(startVar==='right') isRight=true; if(startVar==='jump') isJump=true; });
+            el.addEventListener('mouseup', (e) => { if(startVar === 'left') isLeft=false; if(startVar==='right') isRight=false; if(startVar==='jump') isJump=false; });
+        };
+
+        bindBtn('left', 'left', null);
+        bindBtn('right', 'right', null);
+        bindBtn('jump', 'jump', null);
     }
 </script>
 </body>
