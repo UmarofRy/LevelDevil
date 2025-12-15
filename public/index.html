@@ -2,64 +2,261 @@
 <html lang="uz">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <title>Devil Troll: Neon Edition</title>
+    
+    <!-- Scripts -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="/socket.io/socket.io.js"></script>
-    <script src="//cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    
     <style>
-        body { margin: 0; padding: 0; background: #111; overflow: hidden; font-family: sans-serif; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         
-        /* UI Qismi */
-        #status {
-            position: fixed; top: 10px; left: 10px; color: #00ff00; 
-            font-size: 12px; z-index: 100; text-shadow: 0 0 5px #00ff00;
+        body { 
+            margin: 0; 
+            padding: 0; 
+            background: #000; 
+            overflow: hidden; 
+            font-family: 'Courier New', monospace;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        /* === STATUS PANEL === */
+        #status-panel {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid rgba(0, 255, 200, 0.5);
+            border-radius: 8px;
+            padding: 10px 15px;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            color: #00ffcc;
+            font-size: 13px;
+            text-shadow: 0 0 10px rgba(0, 255, 200, 0.8);
+            min-width: 180px;
         }
 
-        /* Boshqaruv tugmalari (Modern Style) */
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 3px 0;
+        }
+
+        .status-value {
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .online { color: #00ff00; }
+        .offline { color: #ff0055; }
+
+        /* === LEADERBOARD === */
+        #leaderboard {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 2px solid rgba(255, 200, 0, 0.5);
+            border-radius: 8px;
+            padding: 10px;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            color: #ffcc00;
+            font-size: 11px;
+            max-height: 200px;
+            overflow-y: auto;
+            min-width: 150px;
+        }
+
+        #leaderboard h3 {
+            margin: 0 0 8px 0;
+            text-align: center;
+            font-size: 13px;
+            text-shadow: 0 0 10px #ffcc00;
+        }
+
+        .leader-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px;
+            margin: 2px 0;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+
+        /* === CONTROLS === */
         #controls { 
-            position: fixed; bottom: 30px; width: 100%; 
-            display: flex; justify-content: space-between; 
-            padding: 0 40px; box-sizing: border-box; 
-            z-index: 100; pointer-events: none; 
+            position: fixed;
+            bottom: 30px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 30px;
+            z-index: 100;
+            pointer-events: none;
         }
         
-        .control-group { display: flex; gap: 20px; pointer-events: auto; }
+        .control-group { 
+            display: flex;
+            gap: 15px;
+            pointer-events: auto;
+        }
 
         .btn { 
-            width: 70px; height: 70px; 
-            background: rgba(255, 255, 255, 0.1); 
-            backdrop-filter: blur(5px);
-            border-radius: 50%; 
-            border: 2px solid rgba(255, 255, 255, 0.3); 
-            color: white; font-size: 24px; 
-            display: flex; align-items: center; justify-content: center;
+            width: 75px;
+            height: 75px;
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+            backdrop-filter: blur(8px);
+            border-radius: 50%;
+            border: 3px solid rgba(0, 255, 200, 0.4);
+            color: #00ffcc;
+            font-size: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             transition: all 0.1s;
-            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6),
+                        inset 0 0 10px rgba(0, 255, 200, 0.1);
             touch-action: manipulation;
             user-select: none;
+            cursor: pointer;
         }
         
         .btn:active { 
-            background: rgba(255, 255, 255, 0.3); 
-            transform: scale(0.95);
-            border-color: #fff;
-            box-shadow: 0 0 20px rgba(255,255,255,0.4);
+            background: linear-gradient(145deg, rgba(0, 255, 200, 0.3), rgba(0, 255, 200, 0.2));
+            transform: scale(0.92);
+            border-color: #00ffcc;
+            box-shadow: 0 0 25px rgba(0, 255, 200, 0.6),
+                        inset 0 0 15px rgba(0, 255, 200, 0.3);
         }
 
-        /* Yuklanish ekrani */
+        /* === NOTIFICATION === */
+        #notification {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            border: 3px solid #00ffcc;
+            border-radius: 12px;
+            padding: 20px 40px;
+            z-index: 200;
+            color: #fff;
+            font-size: 20px;
+            text-align: center;
+            display: none;
+            box-shadow: 0 0 30px rgba(0, 255, 200, 0.8);
+            animation: pulse 0.5s;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.05); }
+        }
+
+        /* === LOADER === */
         #loader {
-            position: fixed; top:0; left:0; width:100%; height:100%;
-            background: #000; color: white; display: flex;
-            align-items: center; justify-content: center; z-index: 9999;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #000, #1a1a2e);
+            color: #00ffcc;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            font-size: 24px;
+            text-shadow: 0 0 20px #00ffcc;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(0, 255, 200, 0.3);
+            border-top: 5px solid #00ffcc;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-top: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* === PING INDICATOR === */
+        #ping {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            padding: 5px 10px;
+            color: #fff;
+            font-size: 11px;
+            z-index: 100;
+        }
+
+        /* === RESPONSIVE === */
+        @media (max-width: 600px) {
+            .btn { width: 65px; height: 65px; font-size: 24px; }
+            #controls { padding: 0 20px; bottom: 20px; }
+            #status-panel { font-size: 11px; min-width: 150px; }
         }
     </style>
 </head>
 <body>
 
-<div id="loader">Yuklanmoqda...</div>
-<div id="status">🔴 Ulanmoqda...</div>
+<!-- LOADER -->
+<div id="loader">
+    <div>🎮 Devil Troll</div>
+    <div class="spinner"></div>
+</div>
 
+<!-- STATUS PANEL -->
+<div id="status-panel">
+    <div class="status-item">
+        <span>Status:</span>
+        <span class="status-value offline" id="connection-status">●</span>
+    </div>
+    <div class="status-item">
+        <span>Level:</span>
+        <span class="status-value" id="level-display">1</span>
+    </div>
+    <div class="status-item">
+        <span>O'yinchilar:</span>
+        <span class="status-value" id="player-count">0</span>
+    </div>
+    <div class="status-item">
+        <span>Score:</span>
+        <span class="status-value" id="score-display">0</span>
+    </div>
+</div>
+
+<!-- LEADERBOARD -->
+<div id="leaderboard">
+    <h3>🏆 TOP 5</h3>
+    <div id="leaderboard-list">-</div>
+</div>
+
+<!-- NOTIFICATION -->
+<div id="notification"></div>
+
+<!-- PING -->
+<div id="ping">Ping: <span id="ping-value">-</span>ms</div>
+
+<!-- CONTROLS -->
 <div id="controls">
     <div class="control-group">
         <div class="btn" id="left">◀</div>
@@ -71,11 +268,15 @@
 </div>
 
 <script>
-    const tg = window.Telegram.WebApp;
-    tg.expand();
-    tg.ready();
+    // === TELEGRAM WEB APP ===
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+        tg.expand();
+        tg.ready();
+        tg.disableVerticalSwipes();
+    }
 
-    // --- XARITALAR BAZASI ---
+    // === XARITALAR BAZASI ===
     const levels = [
         [
             "####################",
@@ -110,18 +311,22 @@
     ];
 
     const TILE_SIZE = 40;
+    const MOVE_SPEED = 220;
+    const JUMP_VELOCITY = -550;
+    const COYOTE_TIME = 150;
 
+    // === PHASER CONFIG ===
     const config = {
         type: Phaser.AUTO,
         width: window.innerWidth,
         height: window.innerHeight,
-        backgroundColor: '#1a1a1a', // To'q kulrang fon
+        backgroundColor: '#0a0a0a',
         parent: document.body,
         physics: {
             default: 'arcade',
             arcade: { 
-                gravity: { y: 900 }, // Biroz og'irroq realistik sakrash
-                debug: false 
+                gravity: { y: 1000 },
+                debug: false
             }
         },
         scene: { preload, create, update }
@@ -129,327 +334,552 @@
 
     const game = new Phaser.Game(config);
     
-    // Global o'zgaruvchilar
-    let socket, player, cursors;
-    let otherPlayers, platforms, spikes, door, saws, fakeFloors;
+    // === GLOBAL VARIABLES ===
+    let socket;
+    let player, cursors, particles;
+    let otherPlayers, platforms, spikes, door, saws, fakeFloors, invisibleSpikes;
     let isLeft = false, isRight = false, isJump = false;
-    let particles; // Portlash effekti uchun
-    let myId;
-    let statusDiv = document.getElementById('status');
-    let loaderDiv = document.getElementById('loader');
+    let myId, myScore = 0, myDeaths = 0;
+    let currentLevel = 0;
+    let lastGrounded = 0;
+    let lastMoveEmit = 0;
+    let pingStart = 0;
+    let isPlayerDead = false;
 
+    // === UI ELEMENTS ===
+    const statusEl = document.getElementById('connection-status');
+    const levelEl = document.getElementById('level-display');
+    const playersEl = document.getElementById('player-count');
+    const scoreEl = document.getElementById('score-display');
+    const leaderboardEl = document.getElementById('leaderboard-list');
+    const notificationEl = document.getElementById('notification');
+    const loaderEl = document.getElementById('loader');
+    const pingEl = document.getElementById('ping-value');
+
+    // === PRELOAD ===
     function preload() {
-        // --- GRAFIKA GENERATSIYASI (Rasm yuklamaslik uchun) ---
-        let g = this.make.graphics({x: 0, y: 0, add: false});
+        const g = this.make.graphics({ x: 0, y: 0, add: false });
 
-        // 1. Devor (Neon uslub)
-        g.fillStyle(0x222222);
+        // Wall (Neon Grid)
+        g.clear();
+        g.fillStyle(0x1a1a2e);
         g.fillRect(0, 0, 40, 40);
-        g.lineStyle(2, 0x00ffcc); // Neon ko'k chiziq
-        g.strokeRect(0, 0, 40, 40);
+        g.lineStyle(2, 0x00ffcc);
+        g.strokeRect(1, 1, 38, 38);
+        g.lineStyle(1, 0x00ffcc, 0.3);
+        g.lineBetween(20, 0, 20, 40);
+        g.lineBetween(0, 20, 40, 20);
         g.generateTexture('wall', 40, 40);
 
-        // 2. Tikan (Qizil)
+        // Spike
         g.clear();
         g.fillStyle(0xff0055);
-        g.beginPath();
-        g.moveTo(0, 40); g.lineTo(20, 0); g.lineTo(40, 40);
-        g.fillPath();
+        g.fillTriangle(2, 38, 20, 2, 38, 38);
+        g.lineStyle(2, 0xff3366);
+        g.strokeTriangle(2, 38, 20, 2, 38, 38);
         g.generateTexture('spike', 40, 40);
 
-        // 3. Player (Asosiy shakl) - oq kvadrat, keyin ranglanadi
+        // Player
         g.clear();
         g.fillStyle(0xffffff);
-        g.fillRoundedRect(2, 2, 36, 36, 5);
+        g.fillRoundedRect(4, 4, 32, 32, 6);
+        g.lineStyle(2, 0x00ffcc);
+        g.strokeRoundedRect(4, 4, 32, 32, 6);
         g.generateTexture('player', 40, 40);
 
-        // 4. Eshik (Yashil)
+        // Door
         g.clear();
-        g.fillStyle(0x00ff00);
-        g.fillRect(0, 0, 40, 60);
+        g.fillStyle(0x00ff88);
+        g.fillRoundedRect(2, 2, 36, 56, 4);
+        g.fillStyle(0x000);
+        g.fillCircle(32, 30, 3);
+        g.lineStyle(2, 0x00ffcc);
+        g.strokeRoundedRect(2, 2, 36, 56, 4);
         g.generateTexture('door', 40, 60);
 
-        // 5. Arra
+        // Saw
         g.clear();
-        g.lineStyle(3, 0xcccccc);
-        g.fillStyle(0x888888);
-        g.fillCircle(20, 20, 20);
-        g.strokeCircle(20, 20, 20);
+        g.fillStyle(0x666666);
+        g.fillCircle(20, 20, 18);
+        g.lineStyle(3, 0xffcc00);
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            g.lineBetween(
+                20 + Math.cos(angle) * 12,
+                20 + Math.sin(angle) * 12,
+                20 + Math.cos(angle) * 20,
+                20 + Math.sin(angle) * 20
+            );
+        }
         g.generateTexture('saw', 40, 40);
 
-        // 6. Particle (Kichik nuqta)
+        // Particle
         g.clear();
         g.fillStyle(0xffffff);
         g.fillCircle(4, 4, 4);
         g.generateTexture('particle', 8, 8);
     }
 
+    // === CREATE ===
     function create() {
         const self = this;
-        loaderDiv.style.display = 'none';
 
-        // --- ORQA FON (GRID) ---
-        this.add.grid(0, 0, 2000, 2000, 40, 40, 0x1a1a1a, 1, 0x333333, 1).setOrigin(0);
+        // Grid Background
+        const graphics = this.add.graphics();
+        graphics.lineStyle(1, 0x00ffcc, 0.1);
+        for (let x = 0; x < 2000; x += 40) {
+            graphics.lineBetween(x, 0, x, 1000);
+        }
+        for (let y = 0; y < 1000; y += 40) {
+            graphics.lineBetween(0, y, 2000, y);
+        }
 
-        // --- SOCKET ULANISH ---
-        socket = io({ transports: ['websocket'], upgrade: false });
-
-        socket.on('connect', () => {
-            statusDiv.innerHTML = "🟢 Online";
-            statusDiv.style.color = "#00ff00";
-        });
-        
-        socket.on('disconnect', () => {
-            statusDiv.innerHTML = "🔴 Uzildi";
-            statusDiv.style.color = "#ff0000";
-        });
-
-        // Guruhlar
+        // Groups
         otherPlayers = this.physics.add.group();
         platforms = this.physics.add.staticGroup();
         spikes = this.physics.add.staticGroup();
+        invisibleSpikes = this.add.group();
         saws = this.physics.add.group();
         fakeFloors = this.physics.add.staticGroup();
 
-        // Particles Manager (Portlashlar uchun)
+        // Particles
         particles = this.add.particles(0, 0, 'particle', {
-            speed: 100,
+            speed: 150,
             scale: { start: 1, end: 0 },
             blendMode: 'ADD',
             emitting: false
         });
 
-        // Serverdan ma'lumotlar
-        socket.on('initGame', (data) => {
-            myId = socket.id;
-            buildLevel(self, data.levelIndex);
-            
-            Object.keys(data.players).forEach((id) => {
-                if (id !== myId) addOtherPlayer(self, data.players[id]);
-            });
+        // === SOCKET CONNECTION ===
+        const serverUrl = window.location.hostname === 'localhost' 
+            ? 'http://localhost:3000' 
+            : window.location.origin;
 
-            if (!player) createPlayer(self, data.players[myId]);
+        socket = io(serverUrl, {
+            transports: ['websocket', 'polling'],
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            reconnectionAttempts: 10
         });
 
-        socket.on('newPlayer', (pInfo) => addOtherPlayer(self, pInfo));
+        // Connection Events
+        socket.on('connect', () => {
+            statusEl.textContent = '●';
+            statusEl.className = 'status-value online';
+            showNotification('✅ Ulandi!', 2000);
+            startPingMonitoring();
+        });
+        
+        socket.on('disconnect', () => {
+            statusEl.textContent = '●';
+            statusEl.className = 'status-value offline';
+            showNotification('❌ Ulanish uzildi', 2000);
+        });
+
+        socket.on('connect_error', (err) => {
+            console.error('Socket error:', err);
+            showNotification('⚠️ Ulanish xatosi', 2000);
+        });
+
+        socket.on('serverFull', (data) => {
+            showNotification(data.message, 5000);
+            setTimeout(() => socket.disconnect(), 5000);
+        });
+
+        // Game Events
+        socket.on('initGame', (data) => {
+            loaderEl.style.display = 'none';
+            myId = data.yourId;
+            currentLevel = data.levelIndex;
+            levelEl.textContent = data.levelIndex + 1;
+            
+            const startPos = buildLevel(self, data.levelIndex);
+            
+            Object.keys(data.players).forEach((id) => {
+                if (id === myId) {
+                    createPlayer(self, { ...data.players[id], x: startPos.x, y: startPos.y });
+                } else {
+                    addOtherPlayer(self, data.players[id]);
+                }
+            });
+
+            updateUI(data.players, data.leaderboard || []);
+        });
+
+        socket.on('newPlayer', (pInfo) => {
+            addOtherPlayer(self, pInfo);
+            updatePlayerCount();
+        });
 
         socket.on('playerMoved', (pInfo) => {
-            let other = otherPlayers.getChildren().find(p => p.playerId === pInfo.playerId);
-            if (other) {
-                // Silliq harakat (Interpolation)
+            const other = otherPlayers.getChildren().find(p => p.playerId === pInfo.playerId);
+            if (other && !other.isMoving) {
+                other.isMoving = true;
                 self.tweens.add({
                     targets: other,
                     x: pInfo.x,
                     y: pInfo.y,
-                    duration: 50, // 50ms kechikish bilan silliqlash
+                    duration: 100,
+                    ease: 'Linear',
+                    onComplete: () => { other.isMoving = false; }
                 });
             }
         });
 
         socket.on('playerDisconnected', (id) => {
-            let other = otherPlayers.getChildren().find(p => p.playerId === id);
+            const other = otherPlayers.getChildren().find(p => p.playerId === id);
             if (other) {
                 createExplosion(self, other.x, other.y, other.tintTopLeft);
                 other.destroy();
+                updatePlayerCount();
             }
         });
 
-        socket.on('changeLevel', (index) => {
+        socket.on('changeLevel', (data) => {
+            currentLevel = data.levelIndex;
+            levelEl.textContent = data.levelIndex + 1;
+            
+            const winnerName = data.winnerId === myId ? 'Siz' : data.winner;
+            showNotification(`🏆 ${winnerName} yutdi!`, 2000);
+            
             createLevelTransition(self);
+            
             setTimeout(() => {
-                restartGame(self, index);
+                const startPos = buildLevel(self, data.levelIndex);
+                if (player) {
+                    player.setPosition(startPos.x, startPos.y);
+                    player.alpha = 1;
+                    isPlayerDead = false;
+                }
+                updateLeaderboard(data.leaderboard || []);
             }, 500);
         });
 
-        // Klaviatura
+        socket.on('playerDeath', (data) => {
+            if (data.playerId !== myId) {
+                createExplosion(self, data.x, data.y, 0xff0055);
+            }
+        });
+
+        socket.on('updateLeaderboard', (board) => {
+            updateLeaderboard(board);
+        });
+
+        socket.on('pong', (data) => {
+            const ping = Date.now() - pingStart;
+            pingEl.textContent = ping;
+        });
+
+        // Input
         cursors = this.input.keyboard.createCursorKeys();
         setupTouchControls();
     }
 
-    function update() {
-        if (player) {
-            // Harakat
-            if (cursors.left.isDown || isLeft) {
-                player.setVelocityX(-220);
-                player.flipX = true;
-            } else if (cursors.right.isDown || isRight) {
-                player.setVelocityX(220);
-                player.flipX = false;
-            } else {
-                player.setVelocityX(0);
+    // === UPDATE ===
+    function update(time, delta) {
+        if (!player || isPlayerDead) return;
+
+        // Movement
+        if (cursors.left.isDown || isLeft) {
+            player.setVelocityX(-MOVE_SPEED);
+            player.flipX = true;
+        } else if (cursors.right.isDown || isRight) {
+            player.setVelocityX(MOVE_SPEED);
+            player.flipX = false;
+        } else {
+            player.setVelocityX(0);
+        }
+
+        // Track grounded state
+        if (player.body.touching.down) {
+            lastGrounded = time;
+        }
+
+        // Jump with Coyote Time
+        if ((cursors.up.isDown || isJump) && !player.hasJumped) {
+            const timeSinceGrounded = time - lastGrounded;
+            if (timeSinceGrounded < COYOTE_TIME) {
+                player.setVelocityY(JUMP_VELOCITY);
+                player.hasJumped = true;
+                createDust(this, player.x, player.y + 20);
+                if (tg) tg.HapticFeedback?.impactOccurred('light');
             }
+        }
 
-            if ((cursors.up.isDown || isJump) && player.body.touching.down) {
-                player.setVelocityY(-550);
-                createDust(this, player.x, player.y + 20); // Sakrash changi
-            }
+        if (!cursors.up.isDown && !isJump) {
+            player.hasJumped = false;
+        }
 
-            // Arralar aylanishi
-            saws.getChildren().forEach(saw => saw.rotation += 0.15);
+        // Saw rotation
+        saws.getChildren().forEach(saw => {
+            saw.rotation += 0.15;
+        });
 
-            // O'lim (Pastga tushish)
-            if (player.y > window.innerHeight + 100) respawn(this);
+        // Death by falling
+        if (player.y > this.scale.height + 100) {
+            playerDie(this);
+        }
 
-            // Serverga jo'natish
-            let x = Math.round(player.x);
-            let y = Math.round(player.y);
+        // Send position (throttled)
+        if (time - lastMoveEmit > 50) {
+            const x = Math.round(player.x);
+            const y = Math.round(player.y);
             
-            // Faqat o'zgarganda jo'natamiz
-            if (player.oldPos && (Math.abs(x - player.oldPos.x) > 2 || Math.abs(y - player.oldPos.y) > 2)) {
-                socket.emit('playerMovement', { x, y });
+            if (!player.oldPos || Math.abs(x - player.oldPos.x) > 3 || Math.abs(y - player.oldPos.y) > 3) {
+                socket.emit('playerMovement', {
+                    x, y,
+                    velocityX: player.body.velocity.x,
+                    velocityY: player.body.velocity.y
+                });
                 player.oldPos = { x, y };
-            } else if (!player.oldPos) {
-                 player.oldPos = { x, y };
+                lastMoveEmit = time;
             }
         }
     }
 
-    // --- LEVEL VA O'YINCHI FUNKSIYALARI ---
-
+    // === LEVEL FUNCTIONS ===
     function buildLevel(scene, index) {
         platforms.clear(true, true);
         spikes.clear(true, true);
+        invisibleSpikes.clear(true, true);
         saws.clear(true, true);
         fakeFloors.clear(true, true);
         if (door) door.destroy();
 
-        const map = levels[index];
+        const map = levels[index % levels.length]; // agar level ko'p bo'lsa loop
         let startX = 100, startY = 100;
 
         for (let y = 0; y < map.length; y++) {
             for (let x = 0; x < map[y].length; x++) {
-                let tile = map[y][x];
-                let posX = x * TILE_SIZE + 20;
-                let posY = y * TILE_SIZE + 20;
+                const tile = map[y][x];
+                const posX = x * TILE_SIZE + 20;
+                const posY = y * TILE_SIZE + 20;
 
-                if (tile === '#') platforms.create(posX, posY, 'wall');
-                else if (tile === '^') spikes.create(posX, posY, 'spike');
-                else if (tile === '@') { startX = posX; startY = posY; }
-                else if (tile === '!') door = scene.physics.add.staticSprite(posX, posY, 'door');
-                else if (tile === '_') {
-                    let f = fakeFloors.create(posX, posY, 'wall');
-                    f.setTint(0x555555); f.alpha = 0.8;
-                }
-                else if (tile === '*') {
-                    let saw = saws.create(posX, posY, 'saw');
-                    saw.body.allowGravity = false; saw.setImmovable(true);
-                    scene.tweens.add({ targets: saw, x: posX + 120, duration: 1200, yoyo: true, repeat: -1 });
+                switch(tile) {
+                    case '#':
+                        platforms.create(posX, posY, 'wall');
+                        break;
+                    case '^':
+                        spikes.create(posX, posY, 'spike');
+                        break;
+                    case '@':
+                        startX = posX;
+                        startY = posY;
+                        break;
+                    case '!':
+                        door = scene.physics.add.staticSprite(posX, posY, 'door');
+                        door.setSize(40, 60);
+                        break;
+                    case '_':
+                        const f = fakeFloors.create(posX, posY, 'wall');
+                        f.setTint(0x555555);
+                        f.alpha = 0.8;
+                        break;
+                    case '*':
+                        const saw = saws.create(posX, posY, 'saw');
+                        saw.body.allowGravity = false;
+                        saw.setImmovable(true);
+                        scene.tweens.add({
+                            targets: saw,
+                            x: posX + 120,
+                            duration: 1500,
+                            yoyo: true,
+                            repeat: -1,
+                            ease: 'Sine.inOut'
+                        });
+                        break;
                 }
             }
         }
+
         return { x: startX, y: startY };
     }
 
     function createPlayer(scene, info) {
         player = scene.physics.add.sprite(info.x, info.y, 'player');
-        player.setTint(info.color);
+        player.setTint(info.color || 0x00ffcc);
         player.setBounce(0.1);
         player.setCollideWorldBounds(false);
+        player.hasJumped = false;
         
-        // Kamera playerga ergashishi
-        scene.cameras.main.startFollow(player, true, 0.1, 0.1);
+        scene.cameras.main.startFollow(player, true, 0.12, 0.12);
+        scene.cameras.main.setDeadzone(150, 100);
 
         scene.physics.add.collider(player, platforms);
+        scene.physics.add.collider(player, spikes, () => playerDie(scene));
+        scene.physics.add.overlap(player, saws, () => playerDie(scene));
         
-        // O'lim holatlari
-        scene.physics.add.collider(player, spikes, () => respawn(scene), null, scene);
-        scene.physics.add.overlap(player, saws, () => respawn(scene), null, scene);
-
         scene.physics.add.collider(player, fakeFloors, (p, f) => {
-            scene.tweens.add({ targets: f, alpha: 0, duration: 400, onComplete: () => { f.disableBody(true, true); } });
-        }, null, scene);
+            if (!f.triggered) {
+                f.triggered = true;
+                scene.tweens.add({
+                    targets: f,
+                    alpha: 0,
+                    duration: 400,
+                    onComplete: () => f.disableBody(true, true)
+                });
+            }
+        });
 
         scene.physics.add.overlap(player, door, () => {
-            socket.emit('levelWin');
-        }, null, scene);
+            if (!isPlayerDead) {
+                myScore++;
+                scoreEl.textContent = myScore;
+                socket.emit('levelWin');
+                if (tg) tg.HapticFeedback?.notificationOccurred('success');
+            }
+        });
     }
 
     function addOtherPlayer(scene, info) {
-        let other = scene.physics.add.sprite(info.x, info.y, 'player');
-        other.setTint(info.color);
+        const other = scene.physics.add.sprite(info.x, info.y, 'player');
+        other.setTint(info.color || 0x00ffcc);
         other.playerId = info.playerId;
         other.body.allowGravity = false;
-        other.alpha = 0.7; // Boshqalar sal shaffof
+        other.alpha = 0.6;
+        other.isMoving = false;
         otherPlayers.add(other);
     }
 
-    function respawn(scene) {
+    function playerDie(scene) {
+        if (isPlayerDead) return;
+        
+        isPlayerDead = true;
+        myDeaths++;
+        
         createExplosion(scene, player.x, player.y, player.tintTopLeft);
+        socket.emit('playerDied');
+        
         player.setVelocity(0, 0);
-        player.setPosition(100, 200);
-        player.alpha = 0; // Birozga yo'qoladi
+        player.alpha = 0;
         
-        scene.tweens.add({
-            targets: player,
-            alpha: 1,
-            duration: 200
-        });
+        if (tg) tg.HapticFeedback?.notificationOccurred('error');
         
-        tg.HapticFeedback.notificationOccurred('error');
+        setTimeout(() => {
+            const startPos = buildLevel(scene, currentLevel); // o'limdan keyin level qayta quriladi
+            player.setPosition(startPos.x, startPos.y);
+            scene.tweens.add({
+                targets: player,
+                alpha: 1,
+                duration: 300,
+                onComplete: () => { isPlayerDead = false; }
+            });
+        }, 1000);
     }
 
-    function restartGame(scene, index) {
-        if (player) {
-            player.setVelocity(0, 0);
-            player.setPosition(100, 200);
-        }
-        buildLevel(scene, index);
-        tg.HapticFeedback.notificationOccurred('success');
-    }
-
-    // --- VISUAL EFFEKTLAR ---
-
+    // === VISUAL EFFECTS ===
     function createExplosion(scene, x, y, color) {
-        let emitter = particles.createEmitter({
-            x: x, y: y,
-            speed: { min: 50, max: 200 },
+        const emitter = particles.createEmitter({
+            x, y,
+            speed: { min: 100, max: 300 },
             angle: { min: 0, max: 360 },
-            scale: { start: 0.5, end: 0 },
+            scale: { start: 1, end: 0 },
             blendMode: 'SCREEN',
-            lifespan: 400,
-            tint: color,
-            quantity: 20
+            lifespan: 600,
+            tint: color || 0xff0055,
+            quantity: 25
         });
         emitter.explode();
     }
 
     function createDust(scene, x, y) {
-        let emitter = particles.createEmitter({
-            x: x, y: y,
-            speedY: { min: -10, max: 0 },
-            speedX: { min: -50, max: 50 },
-            scale: { start: 0.3, end: 0 },
-            lifespan: 200,
-            quantity: 5,
+        const emitter = particles.createEmitter({
+            x, y,
+            speedY: { min: -20, max: -5 },
+            speedX: { min: -60, max: 60 },
+            scale: { start: 0.4, end: 0 },
+            alpha: { start: 0.6, end: 0 },
+            lifespan: 300,
+            quantity: 8,
             tint: 0xcccccc
         });
         emitter.explode();
     }
 
     function createLevelTransition(scene) {
-        let rect = scene.add.rectangle(0, 0, scene.scale.width, scene.scale.height, 0xffffff).setOrigin(0);
+        const rect = scene.add.rectangle(0, 0, scene.scale.width, scene.scale.height, 0x00ffcc);
+        rect.setOrigin(0);
         rect.setScrollFactor(0);
+        rect.alpha = 0;
+        
         scene.tweens.add({
             targets: rect,
-            alpha: 0,
-            duration: 500,
+            alpha: 0.3,
+            duration: 200,
+            yoyo: true,
             onComplete: () => rect.destroy()
         });
     }
 
-    function setupTouchControls() {
-        const bindBtn = (id, startVar, endVar) => {
-            let el = document.getElementById(id);
-            el.addEventListener('touchstart', (e) => { e.preventDefault(); if(startVar === 'left') isLeft=true; if(startVar==='right') isRight=true; if(startVar==='jump') isJump=true; });
-            el.addEventListener('touchend', (e) => { e.preventDefault(); if(startVar === 'left') isLeft=false; if(startVar==='right') isRight=false; if(startVar==='jump') isJump=false; });
-            // Sichqoncha uchun ham (kompyuterda test qilishga)
-            el.addEventListener('mousedown', (e) => { if(startVar === 'left') isLeft=true; if(startVar==='right') isRight=true; if(startVar==='jump') isJump=true; });
-            el.addEventListener('mouseup', (e) => { if(startVar === 'left') isLeft=false; if(startVar==='right') isRight=false; if(startVar==='jump') isJump=false; });
-        };
+    // === UI FUNCTIONS ===
+    function showNotification(message, duration = 2000) {
+        notificationEl.textContent = message;
+        notificationEl.style.display = 'block';
+        
+        setTimeout(() => {
+            notificationEl.style.display = 'none';
+        }, duration);
+    }
 
-        bindBtn('left', 'left', null);
-        bindBtn('right', 'right', null);
-        bindBtn('jump', 'jump', null);
+    function updateUI(players, leaderboard = []) {
+        updatePlayerCount();
+        updateLeaderboard(leaderboard);
+    }
+
+    function updatePlayerCount() {
+        playersEl.textContent = otherPlayers.getChildren().length + (player ? 1 : 0);
+    }
+
+    function updateLeaderboard(board) {
+        if (board.length === 0) {
+            leaderboardEl.innerHTML = '<div style="text-align:center; color:#666;">-</div>';
+            return;
+        }
+
+        leaderboardEl.innerHTML = '';
+        board.slice(0, 5).forEach((entry, i) => {
+            const item = document.createElement('div');
+            item.className = 'leader-item';
+            item.innerHTML = `
+                <span>${i+1}. ${entry.name || 'Anon'}</span>
+                <span>${entry.score}</span>
+            `;
+            leaderboardEl.appendChild(item);
+        });
+    }
+
+    // === TOUCH CONTROLS ===
+    function setupTouchControls() {
+        const leftBtn = document.getElementById('left');
+        const rightBtn = document.getElementById('right');
+        const jumpBtn = document.getElementById('jump');
+
+        leftBtn.addEventListener('touchstart', (e) => { e.preventDefault(); isLeft = true; });
+        leftBtn.addEventListener('touchend', (e) => { e.preventDefault(); isLeft = false; });
+        leftBtn.addEventListener('mousedown', () => isLeft = true);
+        leftBtn.addEventListener('mouseup', () => isLeft = false);
+        leftBtn.addEventListener('mouseleave', () => isLeft = false);
+
+        rightBtn.addEventListener('touchstart', (e) => { e.preventDefault(); isRight = true; });
+        rightBtn.addEventListener('touchend', (e) => { e.preventDefault(); isRight = false; });
+        rightBtn.addEventListener('mousedown', () => isRight = true);
+        rightBtn.addEventListener('mouseup', () => isRight = false);
+        rightBtn.addEventListener('mouseleave', () => isRight = false);
+
+        jumpBtn.addEventListener('touchstart', (e) => { e.preventDefault(); isJump = true; });
+        jumpBtn.addEventListener('touchend', (e) => { e.preventDefault(); isJump = false; });
+        jumpBtn.addEventListener('mousedown', () => isJump = true);
+        jumpBtn.addEventListener('mouseup', () => isJump = false);
+        jumpBtn.addEventListener('mouseleave', () => isJump = false);
+    }
+
+    // === PING MONITORING ===
+    function startPingMonitoring() {
+        setInterval(() => {
+            pingStart = Date.now();
+            socket.emit('ping');
+        }, 2000);
     }
 </script>
 </body>
